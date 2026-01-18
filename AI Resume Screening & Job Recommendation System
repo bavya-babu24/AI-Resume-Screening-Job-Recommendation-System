@@ -1,0 +1,155 @@
+import PyPDF2
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# ================= QUALIFICATIONS ================= #
+
+QUALIFICATIONS = [
+    "bachelor degree", "b.tech", "b.e", "mca", "m.tech", "mba"
+]
+
+# ================= REQUIRED & ADDITIONAL REQUIREMENTS ================= #
+
+REQUIRED_REQUIREMENTS = [
+    "project tracking",
+    "product development experience",
+    "product management methodologies",
+    "cross functional teams",
+    "analytical skills",
+    "organizational skills",
+    "interpersonal skills",
+    "attention to detail",
+    "problem solving",
+    "collaboration"
+]
+
+ADDITIONAL_REQUIREMENTS = [
+    "azure devops exposure"
+]
+
+# ================= SKILLS ================= #
+
+TECHNICAL_SKILLS = [
+    "python", "java", "sql", "excel",
+    "machine learning", "data analysis",
+    "html", "css", "javascript"
+]
+
+PROFESSIONAL_SKILLS = [
+    "communication", "leadership",
+    "time management", "adaptability",
+    "critical thinking"
+]
+
+BASIC_SKILLS = [
+    "documentation", "presentation",
+    "email writing", "computer fundamentals"
+]
+
+ALL_SKILLS = TECHNICAL_SKILLS + PROFESSIONAL_SKILLS + BASIC_SKILLS
+
+# ================= JOB ROLE DATABASE ================= #
+
+JOB_DATABASE = {
+    "Product Analyst": {
+        "min_experience": 2,
+        "companies": ["Google", "Amazon", "Microsoft"]
+    },
+    "Business Analyst": {
+        "min_experience": 1,
+        "companies": ["Deloitte", "EY", "KPMG"]
+    },
+    "Software Engineer": {
+        "min_experience": 0,
+        "companies": ["Infosys", "Wipro", "TCS"]
+    }
+}
+
+# ================= FUNCTIONS ================= #
+
+def extract_text_from_pdf(path):
+    text = ""
+    with open(path, "rb") as file:
+        reader = PyPDF2.PdfReader(file)
+        for page in reader.pages:
+            if page.extract_text():
+                text += page.extract_text()
+    return text.lower()
+
+def extract_experience(text):
+    matches = re.findall(r'(\d+)\+?\s*(?:years|year|yrs)', text)
+    if matches:
+        return max(map(int, matches))
+    return 0  # Fresher
+
+def match_items(text, items):
+    matched = [i for i in items if i in text]
+    missing = [i for i in items if i not in text]
+    return matched, missing
+
+def ml_match_score(resume_text, job_text):
+    vectorizer = TfidfVectorizer(stop_words="english")
+    vectors = vectorizer.fit_transform([resume_text, job_text])
+    return round(cosine_similarity(vectors[0], vectors[1])[0][0] * 100, 2)
+
+# ================= MAIN ================= #
+
+print("\n===== LinkedIn-Style Resume Review =====\n")
+
+pdf_path = input("Enter resume PDF file path: ").strip('"')
+resume_text = extract_text_from_pdf(pdf_path)
+
+experience_years = extract_experience(resume_text)
+
+qual_match, qual_missing = match_items(resume_text, QUALIFICATIONS)
+req_match, req_missing = match_items(resume_text, REQUIRED_REQUIREMENTS)
+add_match, add_missing = match_items(resume_text, ADDITIONAL_REQUIREMENTS)
+skill_match, skill_missing = match_items(resume_text, ALL_SKILLS)
+
+overall_text = " ".join(REQUIRED_REQUIREMENTS + ADDITIONAL_REQUIREMENTS + ALL_SKILLS)
+overall_score = ml_match_score(resume_text, overall_text)
+
+# ================= OUTPUT (LIKE LINKEDIN) ================= #
+
+print("\nYour profile is missing some required qualifications.\n")
+
+print(f"Matches {len(req_match)} of the {len(REQUIRED_REQUIREMENTS)} required qualifications:\n")
+for r in req_match:
+    print("✔", r)
+for r in req_missing:
+    print("?", r, "(No relevant experience listed)")
+
+print(f"\nMatches {len(add_match)} of the {len(ADDITIONAL_REQUIREMENTS)} additional qualifications:\n")
+for a in add_match:
+    print("✔", a)
+for a in add_missing:
+    print("?", a, "(No relevant experience listed)")
+
+print("\nQualifications:")
+for q in qual_match:
+    print("✔", q)
+for q in qual_missing:
+    print("?", q)
+
+print("\nSkills:")
+for s in skill_match:
+    print("✔", s)
+for s in skill_missing:
+    print("?", s)
+
+print("\nExperience:")
+print("? Overall – 2 to 3 years of experience")
+print(f"✔ Your experience: {experience_years} years")
+
+print(f"\nOverall Match Score: {overall_score}%")
+
+print("\nSuggested Job Roles & Companies:\n")
+for job, data in JOB_DATABASE.items():
+    if experience_years >= data["min_experience"]:
+        print(f"Job Role: {job}")
+        print(f"Minimum Experience Required: {data['min_experience']} years")
+        print("Companies:")
+        for c in data["companies"]:
+            print("-", c)
+        print()
